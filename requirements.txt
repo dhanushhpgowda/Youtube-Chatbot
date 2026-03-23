@@ -1,0 +1,7 @@
+youtube-transcript-api
+sentence-transformers
+pymilvus
+requests
+python-dotenv
+validators
+flask

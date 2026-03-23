@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YT Mind — Ask Your Videos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:        #08080e;
+            --surface:   #0f0f18;
+            --panel:     #141420;
+            --border:    #1e1e30;
+            --border2:   #28283e;
+            --accent:    #e8c86d;
+            --accent2:   #c9a84c;
+            --green:     #5de8a0;
+            --red:       #e06060;
+            --text:      #e6e6f4;
+            --muted:     #5a5a90;
+            --faint:     #1a1a2e;
+            --user-bg:   #141428;
+            --glow:      rgba(232,200,109,0.10);
+            --serif:     'DM Serif Display', serif;
+            --sans:      'Outfit', sans-serif;
+            --mono:      'DM Mono', monospace;
+            --sb:        310px;
+        }
+
+        html { font-size: 16px; }
+        body { height: 100vh; background: var(--bg); color: var(--text);
+               font-family: var(--sans); line-height: 1.6; overflow: hidden; }
+
+        /* ─── LAYOUT ─── */
+        .app { display: grid; grid-template-columns: var(--sb) 1fr; height: 100vh; }
+
+        /* ─── SIDEBAR ─── */
+        .sidebar { background: var(--surface); border-right: 1px solid var(--border);
+                   display: flex; flex-direction: column; overflow: hidden; }
+
+        .sb-head { padding: 28px 22px 20px; border-bottom: 1px solid var(--border); }
+        .logo { font-family: var(--serif); font-size: 2.2rem; color: var(--accent);
+                letter-spacing: -0.5px; line-height: 1; }
+        .logo-sub { color: var(--muted); font-size: 0.82rem; font-weight: 300;
+                    margin-top: 4px; font-style: italic; }
+
+        .new-btn {
+            margin: 16px 14px 0;
+            width: calc(100% - 28px);
+            padding: 12px 18px;
+            background: transparent;
+            border: 1px solid var(--border2);
+            border-radius: 10px;
+            color: var(--muted);
+            font-family: var(--sans);
+            font-size: 0.82rem;
+            font-weight: 600;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            transition: all 0.2s;
+        }
+        .new-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--glow); }
+
+        .sb-label { padding: 20px 22px 8px; font-size: 0.7rem; font-weight: 700;
+                    letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+
+        .sb-list { flex: 1; overflow-y: auto; padding: 0 10px 20px; }
+        .sb-list::-webkit-scrollbar { width: 3px; }
+        .sb-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+        .sess {
+            padding: 11px 12px; border-radius: 10px; cursor: pointer;
+            display: flex; align-items: center; gap: 12px; transition: background 0.15s;
+        }
+        .sess:hover { background: var(--panel); }
+        .sess.active { background: var(--faint); border-left: 2px solid var(--accent); padding-left: 10px; }
+        .sess-thumb { width: 56px; height: 36px; border-radius: 6px; object-fit: cover;
+                      flex-shrink: 0; background: var(--faint); }
+        .sess-info { flex: 1; min-width: 0; }
+        .sess-title { font-size: 0.88rem; font-weight: 500; white-space: nowrap;
+                      overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
+        .sess-meta { font-size: 0.74rem; color: var(--muted); margin-top: 2px; }
+        .sess-del { opacity: 0; background: none; border: none; cursor: pointer;
+                    color: var(--muted); padding: 4px; border-radius: 5px; transition: all 0.15s; flex-shrink: 0; }
+        .sess:hover .sess-del { opacity: 1; }
+        .sess-del:hover { color: var(--red); background: rgba(224,96,96,0.12); }
+
+        .sb-empty { text-align: center; padding: 44px 24px; color: var(--muted);
+                    font-size: 0.84rem; line-height: 2; }
+        .sb-empty svg { opacity: 0.2; display: block; margin: 0 auto 16px; }
+
+        /* ─── MAIN ─── */
+        .main { display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--bg); }
+        .main::before {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background-image: linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+            background-size: 48px 48px;
+            mask-image: radial-gradient(ellipse at 50% 0%, black 0%, transparent 60%);
+        }
+
+        /* ─── TOPBAR ─── */
+        .topbar {
+            padding: 18px 36px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; gap: 16px; flex-shrink: 0;
+            background: rgba(8,8,14,0.9); backdrop-filter: blur(12px); z-index: 10;
+        }
+        .topbar-title { font-family: var(--serif); font-size: 1.3rem; color: var(--text); flex: 1; }
+        .topbar-title small { font-family: var(--sans); font-size: 0.8rem; color: var(--muted);
+                               display: block; font-weight: 300; margin-top: 1px; }
+        .vid-pill { display: flex; align-items: center; gap: 7px; background: var(--faint);
+                    border: 1px solid var(--border2); border-radius: 24px;
+                    padding: 5px 14px 5px 10px; font-size: 0.74rem; color: var(--muted);
+                    font-family: var(--mono); max-width: 220px; overflow: hidden;
+                    white-space: nowrap; text-overflow: ellipsis; }
+        .vid-dot { width: 7px; height: 7px; background: var(--red);
+                   border-radius: 50%; flex-shrink: 0; animation: blink 2s infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
+
+        /* ─── PBAR ─── */
+        .pbar { height: 2px; flex-shrink: 0; overflow: hidden; }
+        .pbar.on { background: var(--border); }
+        .pbar-fill { height: 100%; }
+        .pbar.on .pbar-fill {
+            animation: pslide 1.5s ease-in-out infinite;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        }
+        @keyframes pslide { 0%{width:10%;margin-left:-10%} 50%{width:40%} 100%{width:10%;margin-left:108%} }
+
+        /* ─── WELCOME ─── */
+        .welcome { flex: 1; display: flex; flex-direction: column; align-items: center;
+                   justify-content: center; padding: 48px 72px; position: relative; z-index: 1; }
+        .w-glow { position: absolute; width: 700px; height: 500px; pointer-events: none;
+                  background: radial-gradient(ellipse, rgba(232,200,109,0.045) 0%, transparent 65%);
+                  top: 35%; left: 50%; transform: translate(-50%,-50%); }
+
+        .w-pill { display: inline-flex; align-items: center; gap: 8px;
+                  font-size: 0.74rem; font-weight: 700; letter-spacing: 2.5px;
+                  text-transform: uppercase; color: var(--accent); margin-bottom: 20px; }
+        .w-pill::before, .w-pill::after { content: ''; height: 1px; width: 32px;
+                                          background: var(--accent); opacity: 0.35; }
+
+        .w-h1 { font-family: var(--serif); font-size: 4rem; color: var(--text);
+                 text-align: center; letter-spacing: -1.5px; line-height: 1.1; margin-bottom: 18px; }
+        .w-h1 em { color: var(--accent); font-style: italic; }
+
+        .w-sub { color: var(--muted); font-size: 1.05rem; text-align: center; font-weight: 300;
+                 max-width: 460px; line-height: 1.85; margin-bottom: 52px; }
+
+        .url-form { width: 100%; max-width: 640px; }
+        .url-box { display: flex; border: 1px solid var(--border2); border-radius: 14px;
+                   background: var(--surface); overflow: hidden;
+                   transition: border-color 0.2s, box-shadow 0.2s; }
+        .url-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(232,200,109,0.08); }
+        .url-icon { padding: 0 4px 0 20px; display: flex; align-items: center; color: var(--muted); flex-shrink: 0; }
+        .url-in { flex: 1; padding: 20px 16px; background: transparent; border: none;
+                  outline: none; color: var(--text); font-family: var(--sans); font-size: 1rem; }
+        .url-in::placeholder { color: var(--muted); }
+        .url-go { padding: 20px 34px; background: var(--accent); border: none; color: #08080e;
+                  font-family: var(--sans); font-weight: 700; font-size: 0.9rem; cursor: pointer;
+                  transition: background 0.2s; display: flex; align-items: center; gap: 9px;
+                  white-space: nowrap; letter-spacing: 0.2px; }
+        .url-go:hover { background: var(--accent2); }
+        .url-go:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .url-status { margin-top: 14px; text-align: center; font-size: 0.84rem; min-height: 24px; }
+        .url-status.err { color: var(--red); }
+        .url-status.ok  { color: var(--green); }
+        .url-status.ing { color: var(--accent); }
+
+        .steps-row { display: flex; gap: 48px; margin-top: 56px; }
+        .step-hint { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .step-n { width: 38px; height: 38px; border: 1px solid var(--border2); border-radius: 50%;
+                  display: flex; align-items: center; justify-content: center;
+                  font-size: 0.74rem; color: var(--accent); font-family: var(--mono); }
+        .step-lbl { font-size: 0.8rem; color: var(--muted); max-width: 90px;
+                    text-align: center; line-height: 1.5; }
+
+        /* ─── INGESTION ─── */
+        .ingest { flex: 1; display: none; flex-direction: column; align-items: center;
+                  justify-content: center; padding: 40px 56px; gap: 28px; position: relative; z-index: 1; }
+
+        .ing-card { position: relative; width: 100%; max-width: 660px;
+                    border-radius: 20px; overflow: hidden;
+                    border: 1px solid var(--border2);
+                    box-shadow: 0 48px 120px rgba(0,0,0,0.75); }
+        .ing-thumb { width: 100%; aspect-ratio: 16/9; object-fit: cover;
+                     display: block; filter: brightness(0.75); }
+        .ing-grad { position: absolute; inset: 0;
+                    background: linear-gradient(to top, rgba(8,8,14,0.97) 0%, rgba(8,8,14,0.1) 55%, transparent 100%); }
+        .scan { position: absolute; left: 0; right: 0; height: 2px; top: 0;
+                background: linear-gradient(90deg, transparent, var(--accent), transparent);
+                animation: scan 2.4s ease-in-out infinite;
+                box-shadow: 0 0 16px var(--accent), 0 0 40px rgba(232,200,109,0.22); }
+        @keyframes scan { 0%{top:0%;opacity:0} 6%{opacity:1} 94%{opacity:1} 100%{top:100%;opacity:0} }
+        .ing-title { position: absolute; bottom: 0; left: 0; right: 0;
+                     padding: 24px 28px; font-family: var(--serif);
+                     font-size: 1.55rem; color: var(--text); line-height: 1.3; }
+
+        .ing-steps { width: 100%; max-width: 660px; display: flex; flex-direction: column; gap: 10px; }
+
+        .istep { display: flex; align-items: center; gap: 18px; padding: 18px 24px;
+                 background: var(--surface); border: 1px solid var(--border);
+                 border-radius: 12px; transition: all 0.4s; }
+        .istep.active { border-color: rgba(232,200,109,0.5); background: rgba(232,200,109,0.05); }
+        .istep.done   { border-color: rgba(93,232,160,0.35); background: rgba(93,232,160,0.04); }
+
+        .istep-icon { width: 38px; height: 38px; border-radius: 9px; flex-shrink: 0;
+                      display: flex; align-items: center; justify-content: center;
+                      background: var(--faint); color: var(--muted); transition: all 0.4s; }
+        .istep.active .istep-icon { background: rgba(232,200,109,0.14); color: var(--accent); }
+        .istep.done   .istep-icon { background: rgba(93,232,160,0.14); color: var(--green); }
+
+        .istep-body { flex: 1; }
+        .istep-name { font-size: 1rem; font-weight: 600; color: var(--muted); transition: color 0.4s; }
+        .istep.active .istep-name { color: var(--accent); }
+        .istep.done   .istep-name { color: var(--green); }
+        .istep-sub  { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+        .istep-check { color: var(--green); opacity: 0; flex-shrink: 0; transition: opacity 0.4s; }
+        .istep.done .istep-check { opacity: 1; }
+
+        .pdots { display: flex; gap: 5px; align-items: center; }
+        .pd { width: 6px; height: 6px; background: var(--accent); border-radius: 50%;
+              animation: pd 1.2s ease-in-out infinite; }
+        .pd:nth-child(2){animation-delay:.18s} .pd:nth-child(3){animation-delay:.36s}
+        @keyframes pd { 0%,100%{opacity:0.2;transform:scale(0.6)} 50%{opacity:1;transform:scale(1.3)} }
+
+        /* ─── CHAT ─── */
+        .chat { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; z-index: 1; }
+        .msgs { flex: 1; overflow-y: auto; padding: 44px 52px 0; scroll-behavior: smooth; }
+        .msgs::-webkit-scrollbar { width: 3px; }
+        .msgs::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+        /* VIDEO CARD */
+        .vcard { width: 100%; max-width: 740px; margin: 0 auto 48px;
+                 background: var(--surface); border: 1px solid var(--border2);
+                 border-radius: 20px; overflow: hidden;
+                 box-shadow: 0 28px 80px rgba(0,0,0,0.6);
+                 animation: cardIn 0.6s cubic-bezier(0.16,1,0.3,1); }
+        @keyframes cardIn { from{opacity:0;transform:translateY(28px) scale(0.96)} to{opacity:1;transform:none} }
+
+        .vt-wrap { position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden; cursor: pointer; }
+        .vt-img  { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.5s ease; }
+        .vcard:hover .vt-img { transform: scale(1.04); }
+        .vt-grad { position: absolute; inset: 0;
+                   background: linear-gradient(to top, rgba(8,8,14,0.95) 0%, rgba(8,8,14,0.08) 50%, transparent 100%); }
+        .vt-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+        .vt-btn  { width: 80px; height: 80px; background: rgba(232,200,109,0.9); border-radius: 50%;
+                   display: flex; align-items: center; justify-content: center; color: #08080e;
+                   transition: transform 0.25s, background 0.2s;
+                   box-shadow: 0 0 56px rgba(232,200,109,0.35); }
+        .vcard:hover .vt-btn { transform: scale(1.13); background: var(--accent); }
+        .vt-title { position: absolute; bottom: 0; left: 0; right: 0; padding: 22px 28px;
+                    font-family: var(--serif); font-size: 1.5rem; color: var(--text); line-height: 1.3; }
+
+        .vt-foot { padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+        .vt-id   { font-size: 0.78rem; color: var(--muted); font-family: var(--mono); }
+        .vt-acts { display: flex; align-items: center; gap: 10px; }
+        .vt-badge { display: flex; align-items: center; gap: 6px; padding: 5px 13px;
+                    background: rgba(93,232,160,0.1); border: 1px solid rgba(93,232,160,0.28);
+                    border-radius: 24px; font-size: 0.78rem; color: var(--green); font-weight: 600; }
+        .vt-badge::before { content:''; width:6px; height:6px; background:var(--green);
+                            border-radius:50%; animation:blink 2s infinite; }
+        .vt-link { width: 34px; height: 34px; background: var(--faint); border: 1px solid var(--border2);
+                   border-radius: 9px; display: flex; align-items: center; justify-content: center;
+                   color: var(--muted); text-decoration: none; transition: all 0.15s; }
+        .vt-link:hover { border-color: var(--accent); color: var(--accent); background: var(--glow); }
+
+        /* MESSAGES */
+        .msg  { display: flex; gap: 16px; margin-bottom: 32px; animation: mIn 0.3s ease; }
+        @keyframes mIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+        .av   { width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 0.7rem; font-weight: 700; margin-top: 2px; }
+        .av.u { background: var(--user-bg); border: 1px solid var(--border2);
+                color: var(--accent); font-family: var(--mono); }
+        .av.a { background: linear-gradient(135deg,#181832,#241e4a);
+                border: 1px solid var(--border2); color: var(--accent); }
+        .mb   { flex: 1; min-width: 0; }
+        .mr   { font-size: 0.74rem; font-weight: 700; letter-spacing: 1.1px;
+                text-transform: uppercase; color: var(--muted); margin-bottom: 7px; font-family: var(--mono); }
+        .mr.a { color: var(--accent); }
+        .mt   { background: var(--surface); border: 1px solid var(--border);
+                border-radius: 4px 16px 16px 16px; padding: 18px 22px;
+                font-size: 1rem; line-height: 1.8; color: var(--text); }
+        .msg.user .mt { background: var(--user-bg); border-color: var(--border2);
+                        border-radius: 16px 4px 16px 16px; }
+        .mt strong { color: var(--accent); font-weight: 600; }
+        .mt code { background: var(--faint); padding: 2px 7px; border-radius: 4px;
+                   font-family: var(--mono); font-size: 0.85em; }
+        .mt p+p { margin-top: 12px; }
+
+        .scursor { display: inline-block; width: 2px; height: 1em; background: var(--accent);
+                   margin-left: 2px; vertical-align: text-bottom; animation: cur 0.65s step-end infinite; }
+        @keyframes cur { 0%,100%{opacity:1} 50%{opacity:0} }
+
+        /* INPUT */
+        .ibar { padding: 22px 36px 28px; border-top: 1px solid var(--border);
+                background: rgba(8,8,14,0.94); backdrop-filter: blur(12px); flex-shrink: 0; }
+        .ibox { display: flex; border: 1px solid var(--border2); border-radius: 14px;
+                background: var(--surface); overflow: hidden;
+                transition: border-color 0.2s, box-shadow 0.2s; }
+        .ibox:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(232,200,109,0.07); }
+        .itxt { flex: 1; padding: 18px 22px; background: transparent; border: none;
+                outline: none; color: var(--text); font-family: var(--sans); font-size: 1.05rem;
+                resize: none; min-height: 58px; max-height: 180px; }
+        .itxt::placeholder { color: var(--muted); }
+        .isend { padding: 0 24px; background: transparent; border: none;
+                 border-left: 1px solid var(--border2); color: var(--muted);
+                 cursor: pointer; transition: all 0.15s; display: flex; align-items: center; }
+        .isend:hover:not(:disabled) { color: var(--accent); background: var(--glow); }
+        .isend:disabled { opacity: 0.3; cursor: not-allowed; }
+        .ihint { margin-top: 9px; font-size: 0.76rem; color: var(--muted); text-align: center; }
+        .ihint kbd { background: var(--faint); border: 1px solid var(--border2);
+                     border-radius: 4px; padding: 2px 7px; font-size: 0.68rem; font-family: var(--mono); }
+
+        /* TOAST */
+        .toast { position: fixed; bottom: 28px; right: 28px; background: var(--panel);
+                 border: 1px solid var(--border2); border-radius: 12px; padding: 14px 22px;
+                 font-size: 0.88rem; color: var(--text); z-index: 9999;
+                 transform: translateY(80px); opacity: 0;
+                 transition: all 0.35s cubic-bezier(0.175,0.885,0.32,1.275); }
+        .toast.on  { transform: none; opacity: 1; }
+        .toast.err { border-color: var(--red); color: var(--red); }
+        .toast.ok  { border-color: var(--green); color: var(--green); }
+
+        .hidden { display: none !important; }
+        .spin { width: 16px; height: 16px; border: 2px solid rgba(232,200,109,0.2);
+                border-top-color: var(--accent); border-radius: 50%;
+                animation: s360 0.7s linear infinite; display: inline-block; vertical-align: middle; }
+        @keyframes s360 { to{transform:rotate(360deg)} }
+    </style>
+</head>
+<body>
+<div class="app">
+
+    <!-- ══ SIDEBAR ══ -->
+    <aside class="sidebar">
+        <div class="sb-head">
+            <div class="logo">YT Mind</div>
+            <div class="logo-sub">Ask anything about any video</div>
+        </div>
+        <button class="new-btn" onclick="showWelcome()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            New Video
+        </button>
+        <div class="sb-label">History</div>
+        <div class="sb-list" id="sbList">
+            <div class="sb-empty">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                No sessions yet.<br>Load a YouTube video<br>to get started.
+            </div>
+        </div>
+    </aside>
+
+    <!-- ══ MAIN ══ -->
+    <main class="main">
+        <div class="pbar" id="pbar"><div class="pbar-fill"></div></div>
+
+        <!-- Topbar -->
+        <div class="topbar">
+            <div class="topbar-title" id="topTitle">
+                Welcome <small>Paste a YouTube link to begin</small>
+            </div>
+            <div class="vid-pill hidden" id="vidPill">
+                <div class="vid-dot"></div>
+                <span id="vidPillId">—</span>
+            </div>
+        </div>
+
+        <!-- ── WELCOME ── -->
+        <div class="welcome" id="welcomeView">
+            <div class="w-glow"></div>
+            <div class="w-pill">AI-Powered Video Chat</div>
+            <h1 class="w-h1">Ask your <em>YouTube</em><br>videos anything</h1>
+            <p class="w-sub">Paste any YouTube link. We extract the full transcript, index it with AI, and let you chat with the content.</p>
+
+            <div class="url-form">
+                <div class="url-box">
+                    <div class="url-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/>
+                            <polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" fill="currentColor" stroke="none"/>
+                        </svg>
+                    </div>
+                    <input type="text" class="url-in" id="urlIn"
+                           placeholder="https://www.youtube.com/watch?v=..."
+                           onkeydown="if(event.key==='Enter') loadVideo()">
+                    <button class="url-go" id="goBtn" onclick="loadVideo()">
+                        <span id="goBtnTxt">Load Video</span>
+                    </button>
+                </div>
+                <div class="url-status" id="urlStatus"></div>
+            </div>
+
+            <div class="steps-row">
+                <div class="step-hint"><div class="step-n">1</div><div class="step-lbl">Paste YouTube URL</div></div>
+                <div class="step-hint"><div class="step-n">2</div><div class="step-lbl">AI indexes transcript</div></div>
+                <div class="step-hint"><div class="step-n">3</div><div class="step-lbl">Chat with video</div></div>
+            </div>
+        </div>
+
+        <!-- ── INGESTION ── -->
+        <div class="ingest" id="ingestView">
+            <div class="ing-card">
+                <img class="ing-thumb" id="ingThumb" src="" alt="">
+                <div class="ing-grad"></div>
+                <div class="scan"></div>
+                <div class="ing-title" id="ingTitle">Loading…</div>
+            </div>
+
+            <div class="ing-steps">
+                <!-- Step 1 -->
+                <div class="istep" id="is1">
+                    <div class="istep-icon" id="ii1">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        </svg>
+                    </div>
+                    <div class="istep-body">
+                        <div class="istep-name">Fetching transcript</div>
+                        <div class="istep-sub">Extracting captions from YouTube…</div>
+                    </div>
+                    <div class="istep-check">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                </div>
+                <!-- Step 2 -->
+                <div class="istep" id="is2">
+                    <div class="istep-icon" id="ii2">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                        </svg>
+                    </div>
+                    <div class="istep-body">
+                        <div class="istep-name">Generating embeddings</div>
+                        <div class="istep-sub">Converting text into semantic vectors…</div>
+                    </div>
+                    <div class="istep-check">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                </div>
+                <!-- Step 3 -->
+                <div class="istep" id="is3">
+                    <div class="istep-icon" id="ii3">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                        </svg>
+                    </div>
+                    <div class="istep-body">
+                        <div class="istep-name">Indexing into Milvus</div>
+                        <div class="istep-sub">Storing vectors for fast semantic search…</div>
+                    </div>
+                    <div class="istep-check">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── CHAT ── -->
+        <div class="chat hidden" id="chatView">
+            <div class="msgs" id="msgsArea"></div>
+            <div class="ibar">
+                <div class="ibox">
+                    <textarea class="itxt" id="chatIn" placeholder="Ask something about the video…"
+                              rows="1" onkeydown="onKey(event)" oninput="grow(this)"></textarea>
+                    <button class="isend" id="sendBtn" onclick="send()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"/>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="ihint"><kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> for new line</div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════ */
+let sid = null;   // current session id
+let busy = false; // is AI responding?
+
+document.addEventListener('DOMContentLoaded', loadSessions);
+
+/* ══════════════════════════════════════════════
+   SESSIONS
+══════════════════════════════════════════════ */
+async function loadSessions() {
+    const list = await fetch('/api/sessions').then(r => r.json()).catch(() => []);
+    const el = document.getElementById('sbList');
+    if (!list.length) {
+        el.innerHTML = `<div class="sb-empty">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>No sessions yet.<br>Load a YouTube video<br>to get started.</div>`;
+        return;
+    }
+    el.innerHTML = list.map(s => `
+        <div class="sess ${s.id === sid ? 'active' : ''}" onclick="openSess(${s.id})" id="s${s.id}">
+            <img class="sess-thumb" src="https://img.youtube.com/vi/${s.video_id}/mqdefault.jpg"
+                 onerror="this.style.display='none'" alt="">
+            <div class="sess-info">
+                <div class="sess-title">${x(s.title)}</div>
+                <div class="sess-meta">${s.message_count} msgs · ${ago(s.created_at)}</div>
+            </div>
+            <button class="sess-del" onclick="delSess(event,${s.id})" title="Delete">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/>
+                </svg>
+            </button>
+        </div>`).join('');
+}
+
+async function openSess(id) {
+    sid = id;
+    const s = await fetch(`/api/sessions/${id}`).then(r => r.json());
+    hideAll();
+    show('chatView');
+    setTopbar(s.title, s.video_id);
+    document.getElementById('msgsArea').innerHTML = '';
+    renderMsgs(s.messages);
+    thumbCard(s.video_id, s.title, s.video_url);
+    loadSessions();
+    setTimeout(() => { const a = document.getElementById('msgsArea'); a.scrollTop = a.scrollHeight; }, 80);
+}
+
+async function delSess(e, id) {
+    e.stopPropagation();
+    if (!confirm('Delete this chat session?')) return;
+    await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+    if (sid === id) showWelcome();
+    loadSessions();
+    toast('Session deleted');
+}
+
+/* ══════════════════════════════════════════════
+   LOAD VIDEO — with real step timing
+══════════════════════════════════════════════ */
+async function loadVideo() {
+    const url = document.getElementById('urlIn').value.trim();
+    if (!url) return;
+
+    const vidId = vidRe(url);
+    const btn   = document.getElementById('goBtn');
+    const btnTx = document.getElementById('goBtnTxt');
+    const stat  = document.getElementById('urlStatus');
+
+    // Switch to ingest view IMMEDIATELY, show thumbnail right away
+    hideAll();
+    document.getElementById('ingestView').style.display = 'flex';
+
+    if (vidId) {
+        const img = document.getElementById('ingThumb');
+        img.src = `https://img.youtube.com/vi/${vidId}/maxresdefault.jpg`;
+        img.onerror = () => { img.src = `https://img.youtube.com/vi/${vidId}/hqdefault.jpg`; };
+        document.getElementById('ingTitle').textContent = 'Connecting to YouTube…';
+    }
+
+    btn.disabled = true;
+    btnTx.innerHTML = `<span class="spin"></span>`;
+
+    // Step 1 active — this covers actual transcript fetch time
+    istep(1, 'active');
+
+    try {
+        const res  = await fetch('/api/load_video', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            hideAll(); show('welcomeView');
+            stat.className = 'url-status err';
+            stat.textContent = `✗ ${data.error}`;
+            return;
+        }
+
+        // Transcript done → step 1 complete, step 2 (embeddings) active
+        istep(1, 'done');
+        istep(2, 'active');
+        document.getElementById('ingTitle').textContent = 'Building semantic index…';
+        await wait(900);
+
+        // Embeddings done → step 3 (Milvus indexing) active  
+        istep(2, 'done');
+        istep(3, 'active');
+        document.getElementById('ingTitle').textContent = data.title || 'Video';
+        await wait(700);
+
+        // All done
+        istep(3, 'done');
+        await wait(450);
+
+        sid = data.session_id;
+        await loadSessions();
+
+        hideAll();
+        show('chatView');
+        setTopbar(data.title, data.video_id);
+        document.getElementById('msgsArea').innerHTML = '';
+        thumbCard(data.video_id, data.title, url);
+        document.getElementById('chatIn').focus();
+
+    } catch (err) {
+        hideAll(); show('welcomeView');
+        stat.className = 'url-status err';
+        stat.textContent = `✗ ${err.message}`;
+    } finally {
+        btn.disabled = false;
+        btnTx.textContent = 'Load Video';
+        resetSteps();
+    }
+}
+
+function istep(n, state) {
+    document.getElementById(`is${n}`).className = `istep ${state}`;
+    if (state === 'active') {
+        document.getElementById(`ii${n}`).innerHTML =
+            `<div class="pdots"><div class="pd"></div><div class="pd"></div><div class="pd"></div></div>`;
+    }
+}
+function resetSteps() { [1,2,3].forEach(n => { document.getElementById(`is${n}`).className = 'istep'; }); }
+
+/* ══════════════════════════════════════════════
+   CHAT — TOKEN STREAMING
+══════════════════════════════════════════════ */
+function onKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }
+
+async function send() {
+    const inp = document.getElementById('chatIn');
+    const q   = inp.value.trim();
+    if (!q || busy || !sid) return;
+
+    busy = true;
+    inp.value = ''; grow(inp);
+    document.getElementById('sendBtn').disabled = true;
+    pbar(true);
+
+    addMsg('user', q);
+    const bubble = streamBubble();
+
+    try {
+        const res = await fetch('/api/chat_stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sid, query: q })
+        });
+
+        if (!res.ok) {
+            const e = await res.json();
+            bubble.querySelector('.mt').innerHTML = `⚠ ${x(e.error || 'Error')}`;
+            return;
+        }
+
+        const reader  = res.body.getReader();
+        const decoder = new TextDecoder();
+        let full = '';
+        const txtEl = bubble.querySelector('.stext');
+        const curEl = bubble.querySelector('.scursor');
+        const area  = document.getElementById('msgsArea');
+
+        outer: while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            for (const line of decoder.decode(value, { stream: true }).split('\n')) {
+                if (!line.startsWith('data: ')) continue;
+                const d = line.slice(6);
+                if (d === '[DONE]') break outer;
+                try {
+                    const p = JSON.parse(d);
+                    if (p.token) {
+                        full += p.token;
+                        txtEl.innerHTML = fmt(full);
+                        txtEl.appendChild(curEl);
+                        area.scrollTop = area.scrollHeight;
+                    }
+                } catch {}
+            }
+        }
+        curEl.remove();
+        loadSessions();
+
+    } catch (e) {
+        bubble.querySelector('.mt').innerHTML = `⚠ Network error: ${x(e.message)}`;
+    } finally {
+        busy = false;
+        document.getElementById('sendBtn').disabled = false;
+        pbar(false);
+    }
+}
+
+function streamBubble() {
+    const area = document.getElementById('msgsArea');
+    const d = document.createElement('div');
+    d.className = 'msg assistant';
+    d.innerHTML = `
+        <div class="av a">✦</div>
+        <div class="mb">
+            <div class="mr a">YT Mind</div>
+            <div class="mt"><span class="stext"></span><span class="scursor"></span></div>
+        </div>`;
+    area.appendChild(d);
+    area.scrollTop = area.scrollHeight;
+    return d;
+}
+
+/* ══════════════════════════════════════════════
+   THUMBNAIL CARD
+══════════════════════════════════════════════ */
+function thumbCard(videoId, title, videoUrl) {
+    const area = document.getElementById('msgsArea');
+    if (area.querySelector('.vcard')) return;
+    const watch = videoUrl || `https://www.youtube.com/watch?v=${videoId}`;
+    const d = document.createElement('div');
+    d.className = 'vcard';
+    d.innerHTML = `
+        <a href="${watch}" target="_blank" style="text-decoration:none;display:block">
+            <div class="vt-wrap">
+                <img class="vt-img"
+                     src="https://img.youtube.com/vi/${videoId}/maxresdefault.jpg"
+                     onerror="this.src='https://img.youtube.com/vi/${videoId}/hqdefault.jpg'"
+                     alt="${x(title)}">
+                <div class="vt-grad"></div>
+                <div class="vt-play">
+                    <div class="vt-btn">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="5 3 19 12 5 21 5 3"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="vt-title">${x(title || 'YouTube Video')}</div>
+            </div>
+        </a>
+        <div class="vt-foot">
+            <div class="vt-id">${videoId}</div>
+            <div class="vt-acts">
+                <div class="vt-badge">Indexed & Ready</div>
+                <a href="${watch}" target="_blank" class="vt-link" title="Watch on YouTube">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                        <polyline points="15 3 21 3 21 9"/>
+                        <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                </a>
+            </div>
+        </div>`;
+    area.insertBefore(d, area.firstChild);
+}
+
+/* ══════════════════════════════════════════════
+   MESSAGES
+══════════════════════════════════════════════ */
+function addMsg(role, text) {
+    const area = document.getElementById('msgsArea');
+    const isAI = role === 'assistant';
+    const d = document.createElement('div');
+    d.className = `msg ${role}`;
+    d.innerHTML = `
+        <div class="av ${isAI ? 'a' : 'u'}">${isAI ? '✦' : 'YOU'}</div>
+        <div class="mb">
+            <div class="mr ${isAI ? 'a' : ''}">${isAI ? 'YT Mind' : 'You'}</div>
+            <div class="mt">${fmt(text)}</div>
+        </div>`;
+    area.appendChild(d);
+    area.scrollTop = area.scrollHeight;
+    return d;
+}
+
+function renderMsgs(msgs) {
+    document.getElementById('msgsArea').innerHTML = '';
+    msgs.forEach(m => addMsg(m.role === 'user' ? 'user' : 'assistant', m.content));
+}
+
+/* ══════════════════════════════════════════════
+   UI HELPERS
+══════════════════════════════════════════════ */
+function hideAll() {
+    document.getElementById('welcomeView').classList.add('hidden');
+    document.getElementById('ingestView').style.display = 'none';
+    document.getElementById('chatView').classList.add('hidden');
+}
+function show(id) {
+    const el = document.getElementById(id);
+    el.classList.remove('hidden');
+    if (el.style.display === 'none') el.style.display = '';
+}
+
+function showWelcome() {
+    sid = null; hideAll(); show('welcomeView');
+    document.getElementById('urlIn').value = '';
+    document.getElementById('urlStatus').textContent = '';
+    document.getElementById('topTitle').innerHTML = 'Welcome<small>Paste a YouTube link to begin</small>';
+    document.getElementById('vidPill').classList.add('hidden');
+    loadSessions();
+}
+
+function setTopbar(title, videoId) {
+    document.getElementById('topTitle').innerHTML = `${x(title || 'Video')}<small>${videoId}</small>`;
+    document.getElementById('vidPillId').textContent = videoId;
+    document.getElementById('vidPill').classList.remove('hidden');
+}
+
+function pbar(on) { document.getElementById('pbar').classList.toggle('on', on); }
+
+function toast(msg, cls = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = `toast ${cls} on`;
+    setTimeout(() => t.className = `toast ${cls}`, 3200);
+}
+
+function grow(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 180) + 'px';
+}
+
+/* ══════════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════════ */
+function vidRe(url) {
+    const m = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
+    return m ? m[1] : null;
+}
+
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function fmt(text) {
+    return text
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>')
+        .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+        .replace(/`(.+?)`/g,'<code>$1</code>');
+}
+
+function x(t) {
+    if (!t) return '';
+    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function ago(ts) {
+    const diff = (Date.now() - new Date(ts)) / 1000;
+    if (diff < 60)   return 'just now';
+    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+    return new Date(ts).toLocaleDateString();
+}
+</script>
+</body>
+</html>
